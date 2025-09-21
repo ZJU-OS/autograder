@@ -1,0 +1,163 @@
+import sys
+import time
+from typing import Dict, List, Optional
+
+from pygdbmi.gdbcontroller import GdbController
+
+__all__ = ["GDB"]
+
+
+class GDB:
+
+    def __init__(self,
+                 run_args: list[str] = None,
+                 exec_path: str = "kernel/vmlinux"):
+        self.proc = None
+        self.on_breakpoint: Dict[int, tuple[callable, int]] = {}
+
+        try:
+            cmd = ["gdb-multiarch", "--nx", "--quiet", "--interpreter=mi3"]
+            cmd += run_args if run_args else []
+            self.proc = GdbController(command=cmd)
+
+            # establish connection to QEMU's GDB stub
+            self.gdbport = "1234"
+            response = self.proc.write(
+                f"-target-select remote localhost:{self.gdbport}")
+
+            # verify connection
+            if not self.verify_connection(response):
+                raise Exception("Failed to connect to GDB stub on QEMU")
+
+            response = self.proc.write(f"-file-exec-and-symbols {exec_path}")
+
+            if not self.is_done(response):
+                raise Exception("Failed to load executable and symbols")
+
+        except Exception as e:
+            raise e
+
+    def verify_connection(self, response: List[Dict]) -> bool:
+        for r in response:
+            if r["type"] == "result" and r["message"] == "connected":
+                return True
+        return False
+
+    def is_done(self, response: List[Dict]) -> bool:
+        for r in response:
+            if r["type"] == "result" and r["message"] == "done":
+                return True
+        return False
+
+    def close(self):
+        try:
+            if self.proc:
+                # kill gdb
+                self.proc.exit()
+        except Exception as e:
+            print(f"""Error closing GDB connection: {e}.
+You might need to execute 'killall gdb-multiarch' by yourself.""")
+
+    def cont(self, ignore_error: bool = True) -> List[Dict]:
+        return self.proc.write("-exec-continue",
+                               raise_error_on_timeout=not ignore_error)
+
+    def get_addr_from_response(self, response: List[Dict]) -> Optional[int]:
+        for r in response:
+            if (r["message"] == "stopped"
+                    and r["payload"].get("reason", "") == "breakpoint-hit"):
+                if "frame" in r["payload"]:
+                    frame = r["payload"]["frame"]
+                    if "addr" in frame:
+                        addr_str = frame["addr"]
+                        try:
+                            return int(addr_str, 16)
+                        except ValueError:
+                            pass
+        return None
+
+    def read_register(self, regname: str) -> Optional[int]:
+        response = self.proc.write(f"-data-evaluate-expression ${regname}")
+        for r in response:
+            if r["type"] == "result" and r["message"] == "done":
+                if "value" in r["payload"]:
+                    val_str = r["payload"]["value"]
+                    try:
+                        val = int(val_str, 0)
+                        if val < 0:
+                            val += 1 << 64  # convert to unsigned
+                        return val
+                    except ValueError:
+                        pass
+        return None
+
+    def read_memory(self, addr: int, length: int) -> Optional[bytes]:
+        response = self.proc.write(
+            f"-data-read-memory-bytes 0x{addr:x} {length}")
+        for r in response:
+            if r["type"] == "result" and r["message"] == "done":
+                if "memory" in r["payload"]:
+                    mem_list = r["payload"]["memory"]
+                    if mem_list and "contents" in mem_list[0]:
+                        hex_str = mem_list[0]["contents"]
+                        try:
+                            return bytes.fromhex(hex_str)
+                        except ValueError:
+                            pass
+        return None
+
+    def run(self, timeout: float = 30):
+        from . import TerminateTest
+
+        deadline = time.time() + timeout
+        try:
+            while self.on_breakpoint:
+                timeleft = deadline - time.time()
+                if timeleft < 0:
+                    sys.stdout.write("GDB Timeout! ")
+                    sys.stdout.flush()
+                    return
+
+                response = self.cont()
+
+                if response == []:
+                    # print("We are not receiving any response after continuing. There must exist some error. Exiting...")
+                    raise TerminateTest
+
+                hit_addr: Optional[int] = self.get_addr_from_response(response)
+
+                if not hit_addr:
+                    # maybe still running
+                    # wait for response
+                    response = self.proc.get_gdb_response(
+                        timeout_sec=timeleft, raise_error_on_timeout=False)
+                    hit_addr = self.get_addr_from_response(response)
+                    if not hit_addr:
+                        # print("GDB did not hit any breakpoint, and is not running either. Exiting...")
+                        raise AssertionError(
+                            "GDB did not hit any breakpoint, but also did not continue running."
+                        )
+
+                # print("We actually hit some breakpoint at address 0x{:x}".format(hit_addr))
+
+                if hit_addr in self.on_breakpoint:
+                    callback, times = self.on_breakpoint[hit_addr]
+                    if callback:
+                        callback(self)
+                    if times > 0:
+                        times -= 1
+                        if times == 0:
+                            del self.on_breakpoint[hit_addr]
+                        else:
+                            self.on_breakpoint[hit_addr] = (callback, times)
+
+        except TerminateTest:
+            # print("GDB TerminateTest raised, exiting GDB run loop.")
+            pass
+
+        except Exception as e:
+            # print(f"GDB run error: {e}")
+            raise e
+
+    def breakpoint(self, addr: int):
+        self.proc.write(f"-break-insert *0x{addr:x}")
