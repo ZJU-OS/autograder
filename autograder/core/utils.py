@@ -2,12 +2,10 @@ import errno
 import os
 import random
 import re
-import shutil
 import string
 import sys
 import time
 from subprocess import Popen
-from typing import List, Optional
 
 from .options import get_config
 
@@ -49,12 +47,12 @@ def make(*target: str):
     pre_make()
     config = get_config()
     cwd = config.test_dir if config.test_dir else os.getcwd()
-    if Popen(("make", ) + target, cwd=cwd).wait():
+    if Popen(("make",) + target, cwd=cwd).wait():
         sys.exit(1)
     post_make()
 
 
-def show_command(cmd: List[str]):
+def show_command(cmd: list[str]):
     from shlex import quote
 
     print("\n$", " ".join(map(quote, cmd)))
@@ -64,15 +62,14 @@ def maybe_unlink(*paths: str):
     for path in paths:
         try:
             os.unlink(path)
-        except EnvironmentError as e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
 
 
 def color(name: str, text: str) -> str:
     config = get_config()
-    if (config.color == "always") or \
-       (config.color == "auto" and os.isatty(1)):
+    if (config.color == "always") or (config.color == "auto" and os.isatty(1)):
         return COLORS[name] + text + COLORS["default"]
     return text
 
@@ -92,11 +89,9 @@ def check_time():
         with open("time.txt") as f:
             d = f.read().strip()
             if not re.match(r"^\d+$", d):
-                raise AssertionError(
-                    "time.txt does not contain a single integer "
-                    "(number of hours spent on the lab)")
-    except IOError:
-        raise AssertionError("Cannot read time.txt")
+                raise AssertionError("time.txt does not contain a single integer (number of hours spent on the lab)")
+    except OSError as e:
+        raise AssertionError("Cannot read time.txt") from e
 
 
 def check_answers(file: str, n: int = 10):
@@ -105,7 +100,6 @@ def check_answers(file: str, n: int = 10):
         with open(file) as f:
             d = f.read().strip()
             if len(d) < n:
-                raise AssertionError(
-                    f"{file} does not seem to contain enough text")
-    except IOError:
-        raise AssertionError(f"Cannot read {file}")
+                raise AssertionError(f"{file} does not seem to contain enough text")
+    except OSError as e:
+        raise AssertionError(f"Cannot read {file}") from e

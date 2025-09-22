@@ -1,8 +1,9 @@
 import os
 import re
 import shutil
-from typing import Callable, Union
+from collections.abc import Callable
 
+from ..core.options import get_config
 from ..core.testing import get_current_test
 from ..runners import Runner, TerminateTest
 
@@ -16,7 +17,6 @@ __all__ = [
 
 
 def save(path: str) -> Callable:
-
     def setup_save(runner):
         f.seek(0)
         f.truncate()
@@ -37,14 +37,14 @@ def save(path: str) -> Callable:
     return setup_save
 
 
-def stop_breakpoint(addr: Union[str, int]) -> Callable:
-
+def stop_breakpoint(addr: str | int) -> Callable:
     def setup_breakpoint(runner: Runner):
         if isinstance(addr, str):
             # Look up symbol address
             addrs = []
             try:
-                with open("kernel/kernel.sym") as f:
+                test_dir = get_config().test_dir
+                with open(os.path.join(test_dir, "kernel/System.map")) as f:
                     for line in f:
                         parts = line.strip().split()
                         if len(parts) >= 2 and parts[1] == addr:
@@ -60,7 +60,6 @@ def stop_breakpoint(addr: Union[str, int]) -> Callable:
 
 
 def call_on_line(regexp: str, callback: Callable[[str], None]) -> Callable:
-
     def setup_call_on_line(runner: Runner):
         buf = bytearray()
 
@@ -77,17 +76,15 @@ def call_on_line(regexp: str, callback: Callable[[str], None]) -> Callable:
     return setup_call_on_line
 
 
-def call_on_breakpoint(addr: Union[str, int],
-                       callback: Callable[[str], None] = None,
-                       times: int = 1) -> Callable:
-
+def call_on_breakpoint(addr: str | int, callback: Callable[[str], None] = None, times: int = 1) -> Callable:
     def setup_call_on_breakpoint(runner: Runner):
         breakpoint_addr = addr
         if isinstance(addr, str):
             # Look up symbol address
             addrs = []
             try:
-                with open("kernel/System.map") as f:
+                test_dir = get_config().test_dir
+                with open(os.path.join(test_dir, "kernel/System.map")) as f:
                     for line in f:
                         parts = line.strip().split()
                         if len(parts) >= 3 and parts[2] == addr:
@@ -104,7 +101,6 @@ def call_on_breakpoint(addr: Union[str, int],
 
 
 def stop_on_line(regexp: str) -> Callable:
-
     def stop(line: str):
         raise TerminateTest
 

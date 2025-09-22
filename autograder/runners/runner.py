@@ -1,6 +1,6 @@
 import sys
 import time
-from typing import Any, Callable, List
+from collections.abc import Callable
 
 from ..core.utils import post_make, pre_make
 from .gdb import GDB
@@ -16,20 +16,20 @@ class TerminateTest(Exception):
 
 
 class Runner:
-
     def __init__(self, *default_monitors: Callable[["Runner"], None]):
         self.default_monitors = default_monitors
         self.qemu: QEMU = None
         self.gdb: GDB = None
 
     def run(self, *monitors: Callable[["Runner"], None], **kw):
-
         def run_kw(
             test_on: str = "qemu",
             run_target: str = "debug",
-            make_args: list[str] = [],
+            make_args: list[str] = None,
             timeout: float = 30,
         ):
+            if make_args is None:
+                make_args = []
             return test_on, run_target, make_args, timeout
 
         test_on, run_target, make_args, timeout = run_kw(**kw)
@@ -64,8 +64,7 @@ class Runner:
                 self.gdb.cont()
                 self.qemu.run(timeout)
             else:
-                raise ValueError(
-                    f"Unknown test_on: {test_on}. Must be 'qemu' or 'gdb'.")
+                raise ValueError(f"Unknown test_on: {test_on}. Must be 'qemu' or 'gdb'.")
 
         finally:
             # shutdown qemu and gdb

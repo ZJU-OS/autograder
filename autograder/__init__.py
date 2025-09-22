@@ -1,8 +1,24 @@
 from .core import (  # Monitors; Testing framework; Assertions; Utilities
-    assert_equal, assert_lines_match, call_on_breakpoint, call_on_line,
-    check_answers, check_time, color, end_part, get_current_test, make,
-    maybe_unlink, random_str, reset_fs, run_tests, save, show_command,
-    stop_breakpoint, stop_on_line, test)
+    assert_equal,
+    assert_lines_match,
+    call_on_breakpoint,
+    call_on_line,
+    check_answers,
+    check_time,
+    color,
+    end_part,
+    get_current_test,
+    make,
+    maybe_unlink,
+    random_str,
+    reset_fs,
+    run_tests,
+    save,
+    show_command,
+    stop_breakpoint,
+    stop_on_line,
+    test,
+)
 from .runners import GDB, QEMU, Runner, TerminateTest
 
 __version__ = "1.0.0"

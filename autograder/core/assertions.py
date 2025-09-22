@@ -12,11 +12,11 @@ def assert_equal(got, expect, msg: str = ""):
         msg += "\n"
     raise AssertionError(
         f"{msg}got:\n  {str(got).replace(chr(10), chr(10) + '  ')}\n"
-        f"expected:\n  {str(expect).replace(chr(10), chr(10) + '  ')}")
+        f"expected:\n  {str(expect).replace(chr(10), chr(10) + '  ')}"
+    )
 
 
 def assert_lines_match(text: str, *regexps: str, **kw):
-
     def assert_lines_match_kw(no=None):
         return no or []
 
@@ -58,8 +58,9 @@ def assert_lines_match(text: str, *regexps: str, **kw):
             if lineno != last + 1:
                 msg.append("...")
             last = lineno
-            line_marker = (color("red", "BAD ") if lineno in bad else color(
-                "green", "GOOD") if lineno in good else "    ")
+            line_marker = (
+                color("red", "BAD ") if lineno in bad else color("green", "GOOD") if lineno in good else "    "
+            )
             msg.append(f"{line_marker} {lines[lineno]}")
 
     if last != len(lines) - 1:

@@ -1,7 +1,6 @@
 import os
 from dataclasses import dataclass
 from optparse import OptionParser
-from typing import Optional
 
 
 @dataclass
@@ -9,7 +8,7 @@ class TestConfig:
     color: str = "auto"
     verbosity: bool = False
     test_dir: str = os.getcwd()
-    result_path: Optional[str] = None
+    result_path: str | None = None
 
 
 # Global configuration instance
@@ -28,12 +27,8 @@ def update_config(**kwargs):
 
 
 def parse_args_and_update_config():
-    parser = OptionParser(
-        usage="usage: %prog [-v] [--color=WHEN] [--results=FILE] [filters...]")
-    parser.add_option("-v",
-                      "--verbose",
-                      action="store_true",
-                      help="print commands")
+    parser = OptionParser(usage="usage: %prog [-v] [--color=WHEN] [--results=FILE] [filters...]")
+    parser.add_option("-v", "--verbose", action="store_true", help="print commands")
     parser.add_option(
         "--color",
         choices=["never", "always", "auto"],
@@ -41,9 +36,7 @@ def parse_args_and_update_config():
         help="never, always, or auto",
     )
     parser.add_option("--results", help="results file path")
-    parser.add_option("--test-dir",
-                      default=".",
-                      help="directory to run tests in")
+    parser.add_option("--test-dir", default=".", help="directory to run tests in")
 
     (options, args) = parser.parse_args()
 

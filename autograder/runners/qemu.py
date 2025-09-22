@@ -5,8 +5,8 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from subprocess import Popen
-from typing import Callable, List, Optional
 
 from ..core.options import get_config
 
@@ -14,13 +14,12 @@ __all__ = ["QEMU"]
 
 
 class QEMU:
-
     def __init__(self, run_target: str, *make_args: str):
         # Check that QEMU is not currently running
         try:
             gdbport = 1234
             sock = socket.create_connection(("localhost", gdbport), timeout=1)
-        except (socket.error, ConnectionRefusedError):
+        except (OSError, ConnectionRefusedError):
             # qemu is not running, good
             pass
         else:
@@ -34,19 +33,21 @@ Please exit it if possible or use 'killall qemu'.""",
             sys.exit(1)
 
         cmd = ("make", run_target) + make_args
-        self.proc = Popen(cmd,
-                          stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE,
-                          stdin=subprocess.PIPE,
-                          preexec_fn=os.setsid,
-                          cwd=get_config().test_dir)
+        self.proc = Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+            preexec_fn=os.setsid,
+            cwd=get_config().test_dir,
+        )
 
         # Accumulated output as a string
         self.output = ""
         # Accumulated output as a bytearray
         self.outbytes = bytearray()
         # Callbacks for output events
-        self.on_output: List[Callable[[bytes], None]] = []
+        self.on_output: list[Callable[[bytes], None]] = []
 
     def run(self, timeout: float = 30):
         from . import TerminateTest
@@ -61,8 +62,7 @@ Please exit it if possible or use 'killall qemu'.""",
                 if timeleft < 0:
                     raise AssertionError("No termination after timeout!")
 
-                has_output, _, _ = select.select([self.proc.stdout.fileno()],
-                                                 [], [], timeleft)
+                has_output, _, _ = select.select([self.proc.stdout.fileno()], [], [], timeleft)
 
                 if not has_output:
                     raise AssertionError("No termination after timeout!")

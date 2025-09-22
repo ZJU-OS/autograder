@@ -1,26 +1,24 @@
 import json
 import sys
 import time
-from typing import Callable, Dict, List, Optional
+from collections.abc import Callable
 
 from .options import get_config, parse_args_and_update_config
-from .utils import color
+from .utils import color, reset_fs
 from .utils import make as utils_make
-from .utils import reset_fs
 
 __all__ = ["test", "end_part", "run_tests", "get_current_test"]
 
 
 class TestManager:
-
     def __init__(self):
-        self.tests: List[Callable] = []
+        self.tests: list[Callable] = []
         self.total = 0
         self.possible = 0
         self.part_total = 0
         self.part_possible = 0
-        self.current_test: Optional[Callable] = None
-        self.grades: Dict[str, int] = {}
+        self.current_test: Callable | None = None
+        self.grades: dict[str, int] = {}
 
     def reset(self):
         self.tests.clear()
@@ -36,10 +34,7 @@ class TestManager:
 _test_manager = TestManager()
 
 
-def test(points: int,
-         title: Optional[str] = None,
-         parent: Optional[Callable] = None):
-
+def test(points: int, title: str | None = None, parent: Callable | None = None):
     def register_test(fn, title=title):
         if not title:
             assert fn.__name__.startswith("test_")
@@ -60,14 +55,14 @@ def test(points: int,
             fail = None
             start = time.time()
             _test_manager.current_test = run_test
-            sys.stdout.write("== Test %s == " % title)
+            sys.stdout.write(f"== Test {title} == ")
             if parent:
                 sys.stdout.write("\n")
             sys.stdout.flush()
 
             try:
                 if parent_failed:
-                    raise AssertionError("Parent failed: %s" % parent.__name__)
+                    raise AssertionError(f"Parent failed: {parent.__name__}")
                 fn()
             except AssertionError as e:
                 fail = str(e)
@@ -76,14 +71,14 @@ def test(points: int,
             _test_manager.possible += points
             if points:
                 status = color("red", "FAIL") if fail else color("green", "OK")
-                print("%s: %s" % (title, status), end=" ")
+                print(f"{title}: {status}", end=" ")
 
             if time.time() - start > 0.1:
                 print("(%.1fs)" % (time.time() - start), end=" ")
             print()
 
             if fail:
-                print("    %s" % fail.replace("\n", "\n    "))
+                print(f"   {fail.replace('\n', '\n    ')}")
             else:
                 _test_manager.total += points
 
@@ -110,13 +105,10 @@ def test(points: int,
 
 
 def end_part(name: str):
-
     def show_part():
-        print("Part %s score: %d/%d" % (
-            name,
-            _test_manager.total - _test_manager.part_total,
-            _test_manager.possible - _test_manager.part_possible,
-        ))
+        current_score = _test_manager.total - _test_manager.part_total
+        possible_score = _test_manager.possible - _test_manager.part_possible
+        print(f"Part {name} score: {current_score}/{possible_score}")
         print()
         _test_manager.part_total = _test_manager.total
         _test_manager.part_possible = _test_manager.possible
@@ -150,13 +142,11 @@ def run_tests():
     limit = list(map(str.lower, test_filters))
     try:
         for test_func in _test_manager.tests:
-            if not limit or any(lim in test_func.title.lower()
-                                for lim in limit):
+            if not limit or any(lim in test_func.title.lower() for lim in limit):
                 test_func()
         if not limit:
             write_results()
-            print("Score: %d/%d" %
-                  (_test_manager.total, _test_manager.possible))
+            print(f"Score: {_test_manager.total}/{_test_manager.possible}")
     except KeyboardInterrupt:
         pass
 

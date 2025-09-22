@@ -1,6 +1,4 @@
-import sys
 import time
-from typing import Dict, List, Optional
 
 from pygdbmi.gdbcontroller import GdbController
 
@@ -10,14 +8,13 @@ __all__ = ["GDB"]
 
 
 class GDB:
-
     def __init__(
         self,
         run_args: list[str] = None,
     ):
         self.proc = None
         self.exec_path = get_config().test_dir + "/kernel/vmlinux"
-        self.on_breakpoint: Dict[int, tuple[callable, int]] = {}
+        self.on_breakpoint: dict[int, tuple[callable, int]] = {}
 
         try:
             cmd = ["gdb-multiarch", "--nx", "--quiet", "--interpreter=mi3"]
@@ -26,15 +23,13 @@ class GDB:
 
             # establish connection to QEMU's GDB stub
             self.gdbport = "1234"
-            response = self.proc.write(
-                f"-target-select remote localhost:{self.gdbport}")
+            response = self.proc.write(f"-target-select remote localhost:{self.gdbport}")
 
             # verify connection
             if not self.verify_connection(response):
                 raise Exception("Failed to connect to GDB stub on QEMU")
 
-            response = self.proc.write(
-                f"-file-exec-and-symbols {self.exec_path}")
+            response = self.proc.write(f"-file-exec-and-symbols {self.exec_path}")
 
             if not self.is_done(response):
                 raise Exception("Failed to load executable and symbols")
@@ -42,13 +37,13 @@ class GDB:
         except Exception as e:
             raise e
 
-    def verify_connection(self, response: List[Dict]) -> bool:
+    def verify_connection(self, response: list[dict]) -> bool:
         for r in response:
             if r["type"] == "result" and r["message"] == "connected":
                 return True
         return False
 
-    def is_done(self, response: List[Dict]) -> bool:
+    def is_done(self, response: list[dict]) -> bool:
         for r in response:
             if r["type"] == "result" and r["message"] == "done":
                 return True
@@ -63,14 +58,12 @@ class GDB:
             print(f"""Error closing GDB connection: {e}.
 You might need to execute 'killall gdb-multiarch' by yourself.""")
 
-    def cont(self, ignore_error: bool = True) -> List[Dict]:
-        return self.proc.write("-exec-continue",
-                               raise_error_on_timeout=not ignore_error)
+    def cont(self, ignore_error: bool = True) -> list[dict]:
+        return self.proc.write("-exec-continue", raise_error_on_timeout=not ignore_error)
 
-    def get_addr_from_response(self, response: List[Dict]) -> Optional[int]:
+    def get_addr_from_response(self, response: list[dict]) -> int | None:
         for r in response:
-            if (r["message"] == "stopped"
-                    and r["payload"].get("reason", "") == "breakpoint-hit"):
+            if r["message"] == "stopped" and r["payload"].get("reason", "") == "breakpoint-hit":
                 if "frame" in r["payload"]:
                     frame = r["payload"]["frame"]
                     if "addr" in frame:
@@ -81,7 +74,7 @@ You might need to execute 'killall gdb-multiarch' by yourself.""")
                             pass
         return None
 
-    def read_register(self, regname: str) -> Optional[int]:
+    def read_register(self, regname: str) -> int | None:
         response = self.proc.write(f"-data-evaluate-expression ${regname}")
         for r in response:
             if r["type"] == "result" and r["message"] == "done":
@@ -96,9 +89,8 @@ You might need to execute 'killall gdb-multiarch' by yourself.""")
                         pass
         return None
 
-    def read_memory(self, addr: int, length: int) -> Optional[bytes]:
-        response = self.proc.write(
-            f"-data-read-memory-bytes 0x{addr:x} {length}")
+    def read_memory(self, addr: int, length: int) -> bytes | None:
+        response = self.proc.write(f"-data-read-memory-bytes 0x{addr:x} {length}")
         for r in response:
             if r["type"] == "result" and r["message"] == "done":
                 if "memory" in r["payload"]:
@@ -126,13 +118,12 @@ You might need to execute 'killall gdb-multiarch' by yourself.""")
                 if response == []:
                     raise Exception("No response from GDB after continuing.")
 
-                hit_addr: Optional[int] = self.get_addr_from_response(response)
+                hit_addr: int | None = self.get_addr_from_response(response)
 
                 if not hit_addr:
                     # maybe still running
                     # wait for response
-                    response = self.proc.get_gdb_response(
-                        timeout_sec=timeleft, raise_error_on_timeout=False)
+                    response = self.proc.get_gdb_response(timeout_sec=timeleft, raise_error_on_timeout=False)
                     hit_addr = self.get_addr_from_response(response)
                     if not hit_addr:
                         raise AssertionError("GDB did not hit any breakpoint.")
