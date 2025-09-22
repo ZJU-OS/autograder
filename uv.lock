@@ -3,6 +3,21 @@ revision = 3
 requires-python = ">=3.13"
 
 [[package]]
+name = "autograder"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "pre-commit" },
+    { name = "pygdbmi" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pre-commit" },
+    { name = "pygdbmi" },
+]
+
+[[package]]
 name = "cfgv"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -110,19 +125,4 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1c/14/37fcdba2808a6c615681cd216fecae00413c9dab44fb2e57805ecf3eaee3/virtualenv-20.34.0.tar.gz", hash = "sha256:44815b2c9dee7ed86e387b842a84f20b93f7f417f95886ca1996a72a4138eb1a", size = 6003808, upload-time = "2025-08-13T14:24:07.464Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/76/06/04c8e804f813cf972e3262f3f8584c232de64f0cde9f703b46cf53a45090/virtualenv-20.34.0-py3-none-any.whl", hash = "sha256:341f5afa7eee943e4984a9207c025feedd768baff6753cd660c857ceb3e36026", size = 5983279, upload-time = "2025-08-13T14:24:05.111Z" },
-]
-
-[[package]]
-name = "zju-os-autograder"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "pre-commit" },
-    { name = "pygdbmi" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pre-commit" },
-    { name = "pygdbmi" },
 ]

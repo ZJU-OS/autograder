@@ -4,15 +4,19 @@ from typing import Dict, List, Optional
 
 from pygdbmi.gdbcontroller import GdbController
 
+from ..core.options import get_config
+
 __all__ = ["GDB"]
 
 
 class GDB:
 
-    def __init__(self,
-                 run_args: list[str] = None,
-                 exec_path: str = "kernel/vmlinux"):
+    def __init__(
+        self,
+        run_args: list[str] = None,
+    ):
         self.proc = None
+        self.exec_path = get_config().test_dir + "/kernel/vmlinux"
         self.on_breakpoint: Dict[int, tuple[callable, int]] = {}
 
         try:
@@ -29,7 +33,8 @@ class GDB:
             if not self.verify_connection(response):
                 raise Exception("Failed to connect to GDB stub on QEMU")
 
-            response = self.proc.write(f"-file-exec-and-symbols {exec_path}")
+            response = self.proc.write(
+                f"-file-exec-and-symbols {self.exec_path}")
 
             if not self.is_done(response):
                 raise Exception("Failed to load executable and symbols")
@@ -114,15 +119,12 @@ You might need to execute 'killall gdb-multiarch' by yourself.""")
             while self.on_breakpoint:
                 timeleft = deadline - time.time()
                 if timeleft < 0:
-                    sys.stdout.write("GDB Timeout! ")
-                    sys.stdout.flush()
-                    return
+                    raise AssertionError("No termination after timeout!")
 
                 response = self.cont()
 
                 if response == []:
-                    # print("We are not receiving any response after continuing. There must exist some error. Exiting...")
-                    raise TerminateTest
+                    raise Exception("No response from GDB after continuing.")
 
                 hit_addr: Optional[int] = self.get_addr_from_response(response)
 
@@ -133,12 +135,7 @@ You might need to execute 'killall gdb-multiarch' by yourself.""")
                         timeout_sec=timeleft, raise_error_on_timeout=False)
                     hit_addr = self.get_addr_from_response(response)
                     if not hit_addr:
-                        # print("GDB did not hit any breakpoint, and is not running either. Exiting...")
-                        raise AssertionError(
-                            "GDB did not hit any breakpoint, but also did not continue running."
-                        )
-
-                # print("We actually hit some breakpoint at address 0x{:x}".format(hit_addr))
+                        raise AssertionError("GDB did not hit any breakpoint.")
 
                 if hit_addr in self.on_breakpoint:
                     callback, times = self.on_breakpoint[hit_addr]
@@ -152,11 +149,9 @@ You might need to execute 'killall gdb-multiarch' by yourself.""")
                             self.on_breakpoint[hit_addr] = (callback, times)
 
         except TerminateTest:
-            # print("GDB TerminateTest raised, exiting GDB run loop.")
             pass
 
         except Exception as e:
-            # print(f"GDB run error: {e}")
             raise e
 
     def breakpoint(self, addr: int):

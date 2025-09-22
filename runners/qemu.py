@@ -8,17 +8,20 @@ import time
 from subprocess import Popen
 from typing import Callable, List, Optional
 
+from ..core.options import get_config
+
 __all__ = ["QEMU"]
 
 
 class QEMU:
 
-    def __init__(self, *make_args: str):
+    def __init__(self, run_target: str, *make_args: str):
         # Check that QEMU is not currently running
         try:
             gdbport = 1234
             sock = socket.create_connection(("localhost", gdbport), timeout=1)
         except (socket.error, ConnectionRefusedError):
+            # qemu is not running, good
             pass
         else:
             sock.close()
@@ -30,14 +33,13 @@ Please exit it if possible or use 'killall qemu'.""",
             )
             sys.exit(1)
 
-        cmd = ("make", "debug") + make_args
-        self.proc = Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            preexec_fn=os.setsid,
-        )
+        cmd = ("make", run_target) + make_args
+        self.proc = Popen(cmd,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          stdin=subprocess.PIPE,
+                          preexec_fn=os.setsid,
+                          cwd=get_config().test_dir)
 
         # Accumulated output as a string
         self.output = ""
@@ -57,22 +59,20 @@ Please exit it if possible or use 'killall qemu'.""",
             while True:
                 timeleft = deadline - time.time()
                 if timeleft < 0:
-                    sys.stdout.write("Timeout! ")
-                    sys.stdout.flush()
-                    raise AssertionError("Test timed out")
+                    raise AssertionError("No termination after timeout!")
 
-                _, _, _ = select.select([self.fileno()], [], [], timeleft)
-                self.handle_read()
+                has_output, _, _ = select.select([self.proc.stdout.fileno()],
+                                                 [], [], timeleft)
+
+                if not has_output:
+                    raise AssertionError("No termination after timeout!")
+
+                self.handle_output()
         except TerminateTest:
-            # print("TerminateTest caught, exiting react loop")
+            # successful termination of the test
             pass
 
-    def fileno(self) -> Optional[int]:
-        if self.proc:
-            return self.proc.stdout.fileno()
-        return None
-
-    def handle_read(self):
+    def handle_output(self):
         if not self.proc:
             return
 

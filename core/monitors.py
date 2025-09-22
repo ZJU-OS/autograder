@@ -69,11 +69,8 @@ def call_on_line(regexp: str, callback: Callable[[str], None]) -> Callable:
             while b"\n" in buf:
                 line_bytes, buf[:] = buf.split(b"\n", 1)
                 line = line_bytes.decode("utf-8", "replace")
-                # print("We are processing line:", line)
                 if re.match(regexp, line):
                     callback(line)
-                # else:
-                #     print("No match for line:", line, "against", regexp)
 
         runner.qemu.on_output.append(handle_output)
 

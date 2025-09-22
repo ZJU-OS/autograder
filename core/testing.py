@@ -1,18 +1,17 @@
 import json
 import sys
 import time
-from optparse import OptionParser
 from typing import Callable, Dict, List, Optional
 
+from .options import get_config, parse_args_and_update_config
 from .utils import color
 from .utils import make as utils_make
 from .utils import reset_fs
 
-__all__ = ["test", "end_part", "run_tests", "get_current_test", "TestManager"]
+__all__ = ["test", "end_part", "run_tests", "get_current_test"]
 
 
 class TestManager:
-    """Manages test execution, scoring, and results."""
 
     def __init__(self):
         self.tests: List[Callable] = []
@@ -22,10 +21,8 @@ class TestManager:
         self.part_possible = 0
         self.current_test: Optional[Callable] = None
         self.grades: Dict[str, int] = {}
-        self.options = None
 
     def reset(self):
-        """Reset the test manager state."""
         self.tests.clear()
         self.total = 0
         self.possible = 0
@@ -33,7 +30,6 @@ class TestManager:
         self.part_possible = 0
         self.current_test = None
         self.grades.clear()
-        self.options = None
 
 
 # Global test manager instance
@@ -130,33 +126,19 @@ def end_part(name: str):
 
 
 def write_results():
-    """Write test results to file if specified in options."""
-    if not _test_manager.options or not _test_manager.options.results:
+    config = get_config()
+    if not config.result_path:
         return
     try:
-        with open(_test_manager.options.results, "w") as f:
+        with open(config.result_path, "w") as f:
             f.write(json.dumps(_test_manager.grades))
     except OSError as e:
         print("Provided a bad results path. Error:", e)
 
 
 def run_tests():
-    # Handle command line
-    global options
-    parser = OptionParser(usage="usage: %prog [-v] [filters...]")
-    parser.add_option("-v",
-                      "--verbose",
-                      action="store_true",
-                      help="print commands")
-    parser.add_option(
-        "--color",
-        choices=["never", "always", "auto"],
-        default="auto",
-        help="never, always, or auto",
-    )
-    parser.add_option("--results", help="results file path")
-    (options, args) = parser.parse_args()
-    _test_manager.options = options
+    # Parse command line arguments and update global config
+    test_filters = parse_args_and_update_config()
 
     # Start with a full build to catch build errors
     utils_make()
@@ -165,7 +147,7 @@ def run_tests():
     reset_fs()
 
     # Run tests
-    limit = list(map(str.lower, args))
+    limit = list(map(str.lower, test_filters))
     try:
         for test_func in _test_manager.tests:
             if not limit or any(lim in test_func.title.lower()

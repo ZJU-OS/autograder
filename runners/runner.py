@@ -21,7 +21,6 @@ class Runner:
         self.default_monitors = default_monitors
         self.qemu: QEMU = None
         self.gdb: GDB = None
-        self.reactors: List[Any] = []
 
     def run(self, *monitors: Callable[["Runner"], None], **kw):
 
@@ -49,9 +48,10 @@ class Runner:
             self.qemu.on_output = []
 
             if self.gdb is None:
-                print("Failure when connecting to QEMU; output:")
+                print("Failure when GDB is connecting to QEMU; output:")
                 print(self.qemu.output)
                 sys.exit(1)
+
             post_make()
 
             # Start monitoring
@@ -59,15 +59,8 @@ class Runner:
                 m(self)
 
             if test_on == "gdb":
-                try:
-                    self.gdb.run(timeout)
-                except TerminateTest:
-                    raise TerminateTest
+                self.gdb.run(timeout)
             elif test_on == "qemu":
-                # QEMU and GDB are up
-                self.reactors = [self.qemu]
-
-                # Run and react
                 self.gdb.cont()
                 self.qemu.run(timeout)
             else:
@@ -77,8 +70,8 @@ class Runner:
         finally:
             # shutdown qemu and gdb
             try:
-                # gdb is down, no need to close
                 if self.gdb is None:
+                    # gdb is down, no need to close
                     sys.exit(1)
                 self.qemu.close()
                 self.gdb.close()
@@ -91,14 +84,12 @@ Failed to shutdown QEMU.  You might need to 'killall qemu' or
 
     def monitor_start(self, output: bytes):
         if b"\n" in output:
-            try:
-                time.sleep(0.1)  # wait a bit for gdb stub to be ready
-                self.gdb = GDB()
-                raise TerminateTest
-            except Exception:
-                raise TerminateTest
+            time.sleep(0.1)  # wait a bit for gdb stub to be ready
+            self.gdb = GDB()
         if not len(output):
-            raise TerminateTest
+            raise Exception("No output from QEMU, likely failed.")
+
+        raise TerminateTest
 
     def match(self, *args, **kwargs):
         from ..core.assertions import assert_lines_match
