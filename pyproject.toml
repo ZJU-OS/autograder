@@ -39,5 +39,6 @@ ignore = [
 ]
 
 [[tool.uv.index]]
-url = "https://mirrors.zju.edu.cn/pypi/web/simple"
+#url = "https://mirrors.zju.edu.cn/pypi/web/simple"
+url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 default = true
