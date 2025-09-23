@@ -37,3 +37,7 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
 ]
+
+[[tool.uv.index]]
+url = "https://mirrors.zju.edu.cn/pypi/web/simple"
+default = true
