@@ -7,7 +7,7 @@ from .options import get_config, parse_args_and_update_config
 from .utils import color, reset_fs
 from .utils import make as utils_make
 
-__all__ = ["test", "end_part", "run_tests", "get_current_test"]
+__all__ = ["test", "end_part", "run_tests", "get_current_test", "_test_manager"]
 
 
 class TestManager:

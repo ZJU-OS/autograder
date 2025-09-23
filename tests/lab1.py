@@ -100,6 +100,3 @@ def test_timer_interrupt():
 
 
 end_part("Lab 1 Task 4")
-
-if __name__ == "__main__":
-    run_tests()
