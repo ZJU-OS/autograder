@@ -128,10 +128,9 @@ def write_results():
         print("Provided a bad results path. Error:", e)
 
 
-def run_tests():
-    # Parse command line arguments and update global config
-    test_filters = parse_args_and_update_config()
-
+def run_tests(test_filters=None):
+    if test_filters is None:
+        test_filters = []
     # Start with a full build to catch build errors
     utils_make()
 

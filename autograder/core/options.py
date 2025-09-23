@@ -1,6 +1,8 @@
+import argparse
 import os
+import re
+import subprocess
 from dataclasses import dataclass
-from optparse import OptionParser
 
 
 @dataclass
@@ -27,24 +29,48 @@ def update_config(**kwargs):
 
 
 def parse_args_and_update_config():
-    parser = OptionParser(usage="usage: %prog [-v] [--color=WHEN] [--results=FILE] [filters...]")
-    parser.add_option("-v", "--verbose", action="store_true", help="print commands")
-    parser.add_option(
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbose", action="store_true", help="print commands")
+    parser.add_argument(
         "--color",
         choices=["never", "always", "auto"],
         default="auto",
         help="never, always, or auto",
     )
-    parser.add_option("--results", help="results file path")
-    parser.add_option("--test-dir", default=".", help="directory to run tests in")
+    parser.add_argument("--results", help="results file path")
+    parser.add_argument("--test-dir", default=".", help="directory to run tests in")
+    parser.add_argument("--lab", help="lab to test")
+    parser.add_argument("filters", nargs="*", help="test filters")
 
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
     update_config(
-        verbosity=options.verbose,
-        color=options.color,
-        result_path=options.results,
-        test_dir=options.test_dir,
+        verbosity=args.verbose,
+        color=args.color,
+        result_path=args.results,
+        test_dir=args.test_dir,
     )
 
-    return args
+    lab_num = None
+    if args.lab:
+        match = re.match(r"lab(\d+)", args.lab)
+        if match:
+            lab_num = int(match.group(1))
+
+    if lab_num is None:
+        ci_branch = os.environ.get("CI_COMMIT_BRANCH")
+        if ci_branch:
+            match = re.match(r"lab(\d+)", ci_branch)
+            if match:
+                lab_num = int(match.group(1))
+
+    if lab_num is None:
+        try:
+            branch_name = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip().decode()
+            match = re.match(r"lab(\d+)", branch_name)
+            if match:
+                lab_num = int(match.group(1))
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+    return lab_num, args.filters
