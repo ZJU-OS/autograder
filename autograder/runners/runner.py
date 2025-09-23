@@ -2,6 +2,7 @@ import sys
 import time
 from collections.abc import Callable
 
+from ..core.options import get_config
 from ..core.utils import post_make, pre_make
 from .gdb import GDB
 from .qemu import QEMU
@@ -34,7 +35,12 @@ class Runner:
 
         test_on, run_target, make_args, timeout = run_kw(**kw)
 
+        config = get_config()
+        verbose = config.verbosity
+
         # Start QEMU
+        if verbose:
+            print(f"[VERBOSE] Starting QEMU with target '{run_target}' and args {make_args}")
         pre_make()
         self.qemu = QEMU(run_target, *make_args)
         self.gdb = None
@@ -42,6 +48,8 @@ class Runner:
         try:
             # Wait for QEMU to start or make to fail
             self.qemu.on_output = [self.monitor_start]
+            if verbose:
+                print("[VERBOSE] Waiting for QEMU to start...")
             self.qemu.run(timeout=90)
 
             # QEMU and GDB are up
@@ -53,14 +61,20 @@ class Runner:
                 sys.exit(1)
 
             post_make()
+            if verbose:
+                print("[VERBOSE] QEMU and GDB are ready")
 
             # Start monitoring
             for m in self.default_monitors + monitors:
                 m(self)
 
             if test_on == "gdb":
+                if verbose:
+                    print(f"[VERBOSE] Running test in GDB mode with timeout {timeout}s")
                 self.gdb.run(timeout)
             elif test_on == "qemu":
+                if verbose:
+                    print(f"[VERBOSE] Running test in QEMU mode with timeout {timeout}s")
                 self.gdb.cont()
                 self.qemu.run(timeout)
             else:
@@ -68,18 +82,42 @@ class Runner:
 
         finally:
             # shutdown qemu and gdb
-            try:
-                if self.gdb is None:
-                    # gdb is down, no need to close
-                    sys.exit(1)
-                self.qemu.close()
-                self.gdb.close()
-                self.qemu.run(timeout=5)
-            except:
+            if verbose:
+                print("[VERBOSE] Shutting down QEMU and GDB")
+            cleanup_errors = []
+
+            # Close GDB first
+            if self.gdb is not None:
+                try:
+                    if verbose:
+                        print("[VERBOSE] Closing GDB connection")
+                    self.gdb.close()
+                except Exception as e:
+                    cleanup_errors.append(f"GDB close error: {e}")
+                    if verbose:
+                        print(f"[VERBOSE] Failed to close GDB: {e}")
+
+            # Then close QEMU
+            if self.qemu is not None:
+                try:
+                    if verbose:
+                        print("[VERBOSE] Closing QEMU process")
+                    self.qemu.close()
+                    # Wait a bit for QEMU to fully terminate
+                    self.qemu.run(timeout=5)
+                except Exception as e:
+                    cleanup_errors.append(f"QEMU close error: {e}")
+                    if verbose:
+                        print(f"[VERBOSE] Failed to close QEMU: {e}")
+
+            if cleanup_errors:
+                print("Cleanup errors occurred:")
+                for error in cleanup_errors:
+                    print(f"  {error}")
                 print("""\
 Failed to shutdown QEMU.  You might need to 'killall qemu' or
 'killall qemu.real'.""")
-                raise
+                # Do not raise here to avoid masking the original test failure
 
     def monitor_start(self, output: bytes):
         if b"\n" in output:

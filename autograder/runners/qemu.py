@@ -15,6 +15,9 @@ __all__ = ["QEMU"]
 
 class QEMU:
     def __init__(self, run_target: str, *make_args: str):
+        config = get_config()
+        verbose = config.verbosity
+
         # Check that QEMU is not currently running
         try:
             gdbport = 1234
@@ -33,6 +36,8 @@ Please exit it if possible or use 'killall qemu'.""",
             sys.exit(1)
 
         cmd = ("make", run_target) + make_args
+        if verbose:
+            print(f"[VERBOSE] Starting QEMU with command: {' '.join(cmd)}")
         self.proc = Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -52,8 +57,14 @@ Please exit it if possible or use 'killall qemu'.""",
     def run(self, timeout: float = 30):
         from . import TerminateTest
 
+        config = get_config()
+        verbose = config.verbosity
+
         if not self.proc:
             return
+
+        if verbose:
+            print(f"[VERBOSE] QEMU run starting with timeout {timeout}s")
 
         deadline = time.time() + timeout
         try:
@@ -70,6 +81,8 @@ Please exit it if possible or use 'killall qemu'.""",
                 self.handle_output()
         except TerminateTest:
             # successful termination of the test
+            if verbose:
+                print("[VERBOSE] QEMU run terminated successfully")
             pass
 
     def handle_output(self):
@@ -98,13 +111,22 @@ Please exit it if possible or use 'killall qemu'.""",
         self.proc.stdin.flush()
 
     def close(self):
+        config = get_config()
+        verbose = config.verbosity
+
         if self.proc:
             try:
+                if verbose:
+                    print(f"[VERBOSE] Terminating QEMU process (PID: {self.proc.pid})")
                 pgid = os.getpgid(self.proc.pid)
                 os.killpg(pgid, signal.SIGTERM)
+                if verbose:
+                    print("[VERBOSE] Waiting for QEMU to terminate")
+                self.proc.wait()
+                if verbose:
+                    print("[VERBOSE] QEMU terminated successfully")
             except Exception as e:
                 print(f"Error terminating QEMU: {e}")
                 raise e
 
-            self.proc.wait()
             self.proc = None
