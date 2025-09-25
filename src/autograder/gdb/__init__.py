@@ -32,18 +32,17 @@ from .exec import (
     exec_until,
 )
 from .file import file_exec_and_symbols
-from .gdb import info_register
+from .gdb import (
+    info_register,
+    sync,
+    cont_sync,
+    cont,
+)
 from .locspec import locspec_address, locspec_function, locspec_line
 from .stack import (
     stack_list_frames,
-)
-from .sync import (
-    cont_sync,
-    sync,
 )
 from .target import (
     target_select,
 )
 from .utils import check_responses
-
-

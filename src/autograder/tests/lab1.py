@@ -39,6 +39,7 @@ def task4(self):
     scause = g.info_register(self, "scause")
     assert scause == "0x8000000000000005"
     # check handler output
+    g.cont(self)
     c.wait_for_console_pattern(self, r"timer interrupt")
 
 
