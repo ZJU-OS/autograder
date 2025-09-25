@@ -25,7 +25,11 @@ from .data import (
 )
 from .exec import (
     exec_continue,
+    exec_finish,
+    exec_jump,
     exec_next,
+    exec_next_instruction,
+    exec_return,
     exec_run,
     exec_step,
     exec_step_instruction,

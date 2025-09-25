@@ -4,10 +4,11 @@ Global Helper Function
 
 
 def write(test, command: str) -> list[dict]:
-    response = test.gdb.write(command)
+    responses = test.gdb.write(command)
     test.gdb_log.debug("GDB command: %s", command)
-    test.gdb_log.debug("GDB response: %s", response)
-    return response
+    for r in responses:
+        test.gdb_log.debug("GDB response: %s", r)
+    return responses
 
 
 def check_responses(

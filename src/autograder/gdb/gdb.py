@@ -44,11 +44,12 @@ def info_register(test, regname: str, fmt: str = "x") -> str:
                         return None
     return None
 
-def cont(test) -> None:
-    exec_continue(test)
+
+def cont(test) -> list[dict]:
+    return exec_continue(test)
 
 
-def sync(test, timeout: float = config.wait_timeout) -> None:
+def sync(test, timeout: float = config.wait_timeout) -> list[dict]:
     # loop and accumulate responses until we see a "stopped" event or timeout
     deadline = time.time() + timeout
     responses = []
@@ -60,7 +61,7 @@ def sync(test, timeout: float = config.wait_timeout) -> None:
                 test.gdb_log.debug("GDB response: %s", r)
             for r in resp:
                 if r["message"] == "stopped":
-                    return
+                    return responses
         else:
             test.gdb_log.debug("GDB sync: no response, still waiting...")
             time.sleep(config.frequency)
@@ -68,6 +69,7 @@ def sync(test, timeout: float = config.wait_timeout) -> None:
 
 
 def cont_sync(test, timeout: float = config.wait_timeout) -> None:
-    if check_responses(exec_continue(test), message="stopped"):
-        return
-    sync(test, timeout=timeout)
+    responses = exec_continue(test)
+    if check_responses(responses, message="stopped"):
+        return responses
+    responses.extend(sync(test, timeout=timeout))
