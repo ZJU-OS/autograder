@@ -17,29 +17,38 @@ def task2(self):
 
 
 def task3(self):
-    g.break_insert(self, g.locspec_function("trap_handler"))
+    # check scause
+    g.break_insert(self, g.locspec_function("trap_handler"), temporary=True)
     g.cont_sync(self)
     scause = g.info_register(self, "scause")
-    self.log.info(f"scause = {scause}")
+    assert scause == "0x8000000000000001"
+    # back to start_kernel
+    g.break_insert(self, g.locspec_function("clock"), temporary=True)
+    g.cont_sync(self)
 
 
 def task4(self):
+    # check clock
+    #g.break_insert(self, g.locspec_function("clock"), temporary=True)
+    #time_end = int(g.data_evaluate_expression(self, "time_end")["paylod"]["value"])
+    #time_start = int(g.data_evaluate_expression(self, "time_start")["paylod"]["value"])
+    #assert time_end - time_start > 0
     # check sstatus
+    g.break_insert(self, g.locspec_function("trap_handler"), temporary=True)
     g.cont_sync(self)
     scause = g.info_register(self, "scause")
-    self.log.info(f"scause = {scause}")
+    assert scause == "0x8000000000000005"
     # check handler output
-    g.cont_sync(self)
     c.wait_for_console_pattern(self, r"timer interrupt")
 
 
 class Lab1Test(QemuGdbTest):
     def test_lab1(self):
         task1(self)
-        print("Test1 Passed")
+        print("Task1 Passed")
         task2(self)
-        print("Test2 Passed")
+        print("Task2 Passed")
         task3(self)
-        print("Test3 Passed")
+        print("Task3 Passed")
         task4(self)
-        print("Test4 Passed")
+        print("Task4 Passed")

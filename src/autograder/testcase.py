@@ -54,6 +54,9 @@ class QemuGdbTest(unittest.TestCase):
         self.machinelog = logging.getLogger("qemu.machine")
         self.machinelog.setLevel(logging.DEBUG)
         self.machinelog.addHandler(self._log_fh)
+        self.qmplog = logging.getLogger("qemu.qmp")
+        self.qmplog.setLevel(logging.DEBUG)
+        self.qmplog.addHandler(self._log_fh)
 
         # VM 控制台日志
         self.console_log_name = self.log_file("console.log")
@@ -85,6 +88,7 @@ class QemuGdbTest(unittest.TestCase):
         #     "chardev=backdoor,mode=control",
         # )
         self.vm.launch()
+        monitor.query_version(self)
 
     def launch_gdb(self):
         # GDB 日志
